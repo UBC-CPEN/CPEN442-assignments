@@ -1,5 +1,5 @@
 import json
-from dh import *
+from diffie_hellman import *
 from cipher import *
 
 class Protocol:
@@ -48,6 +48,7 @@ class Protocol:
     # TODO: MODIFY AS YOU SEEM FIT
     def SetSessionKey(self, key):
         self._key = str(key)
+        print(f"My very secret key is {self._key}")
         pass
 
 

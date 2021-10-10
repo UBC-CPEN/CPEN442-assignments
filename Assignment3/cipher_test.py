@@ -2,7 +2,7 @@ import unittest
 
 from cipher import *
 
-class TestAES(unittest.TestCase):
+class TestCipher(unittest.TestCase):
     def test_simple(self):
         plaintext = "123"
         key = "blah blah"
