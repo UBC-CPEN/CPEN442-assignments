@@ -97,6 +97,8 @@ class Assignment3VPN:
         if not self._ValidateConnectionInputs():
             return False
         
+        self.prtcl.SetSessionKey(self.secretEntry.get())
+
         try:
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -154,7 +156,8 @@ class Assignment3VPN:
                     # Disabling the button to prevent repeated clicks
                     self.secureButton["state"] = "disabled"
                     # Processing the protocol message
-                    return_message = self.prtcl.ProcessReceivedProtocolMessage(cipher_text)
+                    plaintext = self.prtcl.DecryptAndVerifyMessage(cipher_text)
+                    return_message = self.prtcl.ProcessReceivedProtocolMessage(plaintext)
                     self._SendMessage(return_message)
 
                 # Otherwise, decrypting and showing the messaage

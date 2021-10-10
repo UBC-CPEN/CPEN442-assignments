@@ -1,6 +1,6 @@
 import json
-import hashlib
 from dh import *
+from cipher import *
 
 class Protocol:
     # Initializer (Called from app.py)
@@ -13,18 +13,20 @@ class Protocol:
     # Creating the initial message of your protocol (to be send to the other party to bootstrap the protocol)
     # TODO: IMPLEMENT THE LOGIC (MODIFY THE INPUT ARGUMENTS AS YOU SEEM FIT)
     def GetProtocolInitiationMessage(self, status = "start"):
-        return json.dumps({
+        msg = {
             "status": status, 
             "public_key": str(self.diffie_hellman.get_public_key())
-        })
+        }
+        return json.dumps(msg)
 
 
     # Checking if a received message is part of your protocol (called from app.py)
     # TODO: IMPLMENET THE LOGIC
     def IsMessagePartOfProtocol(self, message):
         try:
-            msg = json.loads(message)
-            return "status" in msg and "public_key" in msg
+            plaintext = self.DecryptAndVerifyMessage(message)
+            msg = json.loads(plaintext)
+            return isinstance(msg, dict) and "status" in msg and "public_key" in msg
         except json.decoder.JSONDecodeError:
             return False
 
@@ -45,7 +47,7 @@ class Protocol:
     # Setting the key for the current session
     # TODO: MODIFY AS YOU SEEM FIT
     def SetSessionKey(self, key):
-        self._key = hashlib.sha256(key).digest()
+        self._key = str(key)
         pass
 
 
@@ -53,13 +55,11 @@ class Protocol:
     # TODO: IMPLEMENT ENCRYPTION WITH THE SESSION KEY (ALSO INCLUDE ANY NECESSARY INFO IN THE ENCRYPTED MESSAGE FOR INTEGRITY PROTECTION)
     # RETURN AN ERROR MESSAGE IF INTEGRITY VERITIFCATION OR AUTHENTICATION FAILS
     def EncryptAndProtectMessage(self, plain_text):
-        cipher_text = plain_text
-        return cipher_text
+        return Cipher.encrypt(plain_text, self._key)
 
 
     # Decrypting and verifying messages
     # TODO: IMPLEMENT DECRYPTION AND INTEGRITY CHECK WITH THE SESSION KEY
     # RETURN AN ERROR MESSAGE IF INTEGRITY VERITIFCATION OR AUTHENTICATION FAILS
     def DecryptAndVerifyMessage(self, cipher_text):
-        plain_text = cipher_text
-        return plain_text
+        return Cipher.decrypt(cipher_text, self._key)
