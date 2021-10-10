@@ -1,12 +1,12 @@
-import random
 import json
+import hashlib
 from dh import *
 
 class Protocol:
     # Initializer (Called from app.py)
     # TODO: MODIFY ARGUMENTS AND LOGIC AS YOU SEEM FIT
     def __init__(self):
-        self.key = DiffieHellman()
+        self.diffie_hellman = DiffieHellman()
         pass
 
 
@@ -15,7 +15,7 @@ class Protocol:
     def GetProtocolInitiationMessage(self, status = "start"):
         return json.dumps({
             "status": status, 
-            "public_key": str(self.key.get_public_key())
+            "public_key": str(self.diffie_hellman.get_public_key())
         })
 
 
@@ -35,7 +35,7 @@ class Protocol:
     def ProcessReceivedProtocolMessage(self, message):
         msg = json.loads(message)
         other_public_key = int(msg["public_key"])
-        shared_key = self.key.get_shared_key(other_public_key)
+        shared_key = self.diffie_hellman.get_shared_key(other_public_key)
         self.SetSessionKey(shared_key)
         if msg["status"] == "end":
             return ""
@@ -45,8 +45,7 @@ class Protocol:
     # Setting the key for the current session
     # TODO: MODIFY AS YOU SEEM FIT
     def SetSessionKey(self, key):
-        print(key)
-        self._key = key
+        self._key = hashlib.sha256(key).digest()
         pass
 
 
