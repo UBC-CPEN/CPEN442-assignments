@@ -36,7 +36,7 @@ class Protocol:
     # THROW EXCEPTION IF AUTHENTICATION FAILS
     def ProcessReceivedProtocolMessage(self, message):
         msg = json.loads(message)
-        other_public_key = int(msg["public_key"])
+        other_public_key = str(msg["public_key"])
         shared_key = self.diffie_hellman.get_shared_key(other_public_key)
         return_message = self.GetProtocolInitiationMessage("end")
         if msg["status"] == "end":
