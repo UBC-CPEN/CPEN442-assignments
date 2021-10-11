@@ -1,12 +1,12 @@
 import json
-from diffie_hellman import *
+from elliptic_curve_diffie_hellman import *
 from cipher import *
 
 class Protocol:
     # Initializer (Called from app.py)
     # TODO: MODIFY ARGUMENTS AND LOGIC AS YOU SEEM FIT
     def __init__(self):
-        self.diffie_hellman = DiffieHellman()
+        self.ecdh = ECDH()
         pass
 
 
@@ -15,7 +15,7 @@ class Protocol:
     def GetProtocolInitiationMessage(self, status = "start"):
         msg = {
             "status": status, 
-            "public_key": str(self.diffie_hellman.get_public_key())
+            "public_key": str(self.ecdh.get_public_key())
         }
         return json.dumps(msg)
 
@@ -37,7 +37,7 @@ class Protocol:
     def ProcessReceivedProtocolMessage(self, message):
         msg = json.loads(message)
         other_public_key = str(msg["public_key"])
-        shared_key = self.diffie_hellman.get_shared_key(other_public_key)
+        shared_key = self.ecdh.get_shared_key(other_public_key)
         return_message = self.GetProtocolInitiationMessage("end")
         if msg["status"] == "end":
             return shared_key, ""
