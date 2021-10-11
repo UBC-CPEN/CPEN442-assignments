@@ -38,10 +38,10 @@ class Protocol:
         msg = json.loads(message)
         other_public_key = int(msg["public_key"])
         shared_key = self.diffie_hellman.get_shared_key(other_public_key)
-        self.SetSessionKey(shared_key)
+        return_message = self.GetProtocolInitiationMessage("end")
         if msg["status"] == "end":
-            return ""
-        return self.GetProtocolInitiationMessage("end")
+            return shared_key, ""
+        return shared_key, return_message
 
 
     # Setting the key for the current session

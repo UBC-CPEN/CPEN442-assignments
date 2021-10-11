@@ -7,7 +7,7 @@ class Cipher:
         # str to bytes
         key = key.encode("utf-8")
         # force key to be 256 bits by getting sha256 hash
-        key = hashlib.sha256().digest()
+        key = hashlib.sha256(key).digest()
         # use mode cbc-mac + counter (mode_ccm) for integrity and encryption
         # add 11-byte nonce
         return AES.new(key, AES.MODE_CCM, nonce=b"eleven byte")
