@@ -158,7 +158,9 @@ class Assignment3VPN:
                     # Processing the protocol message
                     plaintext = self.prtcl.DecryptAndVerifyMessage(cipher_text)
                     session_key, return_message = self.prtcl.ProcessReceivedProtocolMessage(plaintext)
-                    self._SendMessage(return_message)
+
+                    if return_message:
+                        self._SendMessage(return_message)
                     self.prtcl.SetSessionKey(session_key)
 
                 # Otherwise, decrypting and showing the messaage

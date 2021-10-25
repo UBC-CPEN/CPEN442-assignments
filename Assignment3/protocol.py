@@ -15,7 +15,7 @@ class Protocol:
     def GetProtocolInitiationMessage(self, status = "start"):
         msg = {
             "status": status, 
-            "public_key": str(self.ecdh.get_public_key())
+            "encrypted_public_key": self.EncryptAndProtectMessage(str(self.ecdh.get_public_key()))
         }
         return json.dumps(msg)
 
@@ -26,7 +26,7 @@ class Protocol:
         try:
             plaintext = self.DecryptAndVerifyMessage(message)
             msg = json.loads(plaintext)
-            return isinstance(msg, dict) and "status" in msg and "public_key" in msg
+            return isinstance(msg, dict) and "status" in msg and "encrypted_public_key" in msg
         except json.decoder.JSONDecodeError:
             return False
 
@@ -35,13 +35,17 @@ class Protocol:
     # TODO: IMPLMENET THE LOGIC (CALL SetSessionKey ONCE YOU HAVE THE KEY ESTABLISHED)
     # THROW EXCEPTION IF AUTHENTICATION FAILS
     def ProcessReceivedProtocolMessage(self, message):
-        msg = json.loads(message)
-        other_public_key = str(msg["public_key"])
-        shared_key = self.ecdh.get_shared_key(other_public_key)
-        return_message = self.GetProtocolInitiationMessage("end")
-        if msg["status"] == "end":
-            return shared_key, ""
-        return shared_key, return_message
+        try:
+            msg = json.loads(message)
+            other_public_key = self.DecryptAndVerifyMessage(str(msg["encrypted_public_key"])).decode("utf-8")
+            shared_key = self.ecdh.get_shared_key(other_public_key)
+
+            return_message = self.GetProtocolInitiationMessage("end")
+            if msg["status"] == "end":
+                return shared_key, ""
+            return shared_key, return_message
+        except Exception:
+            raise Exception('Authentication failed!')
 
 
     # Setting the key for the current session
