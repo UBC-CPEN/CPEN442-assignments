@@ -10,30 +10,32 @@ class Protocol:
     ...
 
     Attributes:
-    _SessionKey (byte[]): session key for symmetric encryption
-    _BootstrapKey (byte[]): key for encryption of DHE key establishment. based off of shared secret
-    _ServerMode (bool): prototocol mode, server if true, client otherwise
-    _DHExponent (int): our DH exponent. to be 'forgotten' after establishment of session key
-    _AuthNonceLen (int) CONSTANT: the constant length of generate nonces in the protocol
-    _g (int) CONSTANT: our protocol's DH generator
-    _p (int) CONSTANT: our protocol's DH prime
-    _InitVal (bytes[]): a String identifyign our protocol's initiation message
+    _SessionKey (bytes):    session key for symmetric encryption
+    _BootstrapKey (bytes):  key for encryption of DHE key establishment. based off of shared secret
+    _ServerMode (bool):     prototocol mode, server if true, client otherwise
+    _DHExponent (int):      our DH exponent. to be 'forgotten' after establishment of session key
+    _AuthNonceLen (int):    (CONSTANT) the length of generated nonces in the protocol
+    _g (int):               (CONSTANT) our protocol's DH generator
+    _p (int):               (CONSTANT) our protocol's DH prime
+    _ClientInitVal (bytes): a Sbytes identifying our protocol's initiation message
+    _ServerInitVal (bytes): a bytes identifying our protocol's initiation message
+    _MWait (datetime):      the time we send our protocol initiation
     """
 
     # TODO: MODIFY ARGUMENTS AND LOGIC AS YOU SEEM FIT
     # TODO: @Brendon and Joshua add DH constants (g and p)
     def __init__(self):
         """initializes all variables to None"""
-        self._SessionKey = None
-        self._BootstrapKey = None
-        self._ServerMode = True
-        self._DHExponent = None
-        self._AuthNonceLen = 16
-        self._g = None
-        self._p = None
+        self._SessionKey    = None
+        self._BootstrapKey  = None
+        self._ServerMode    = True
+        self._DHExponent    = None
+        self._AuthNonceLen  = 16
+        self._g             = None
+        self._p             = None
         self._ClientInitVal = b'Client protocol initiation message'
         self._ServerInitVal = b'Server protocol initiation message'
-        self._MWait = None
+        self._MWait         = None
         pass
 
     def SetBootstrapKey(self, AuthNonce, secret):
