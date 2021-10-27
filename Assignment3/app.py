@@ -105,14 +105,14 @@ class Assignment3VPN:
                 self._AppendLog("CONNECTION: Initiating client mode...")
                 self.s.connect((self.hostName.get(), int(self.port.get())))
                 self.conn = self.s
-                self._id = User.CLIENT
+                self.prtcl._id = User.CLIENT
                 self.receive_thread.start()
                 self._AppendLog("CLIENT: Connection established successfully. You can now send/receive messages.")
             else:
                 self._AppendLog("CONNECTION: Initiating server mode...")
                 self.s.bind((self.hostName.get(), int(self.port.get())))
                 self.s.listen(1)
-                self._id = User.SERVER
+                self.prtcl._id = User.SERVER
                 self.server_thread.start()
             return True
         except Exception as e:
@@ -158,12 +158,18 @@ class Assignment3VPN:
                     self.secureButton["state"] = "disabled"
                     # Processing the protocol message
                     auth_msg = cipher_text.decode("utf-8")
-                    session_key, return_message = self.prtcl.ProcessReceivedProtocolMessage(auth_msg, self._id)
+                    print("Authenticate Message by other: {}".format(auth_msg))
+                    session_key, return_message = self.prtcl.ProcessReceivedProtocolMessage(auth_msg)
+
+                    if session_key:
+                        self.prtcl.SetSessionKey(session_key)
+                        # 1-side Authentication was successful when shared key is generated
+                        other_id = User.SERVER.name if self.prtcl._id == User.CLIENT else User.CLIENT.name
+                        self._AppendMessage('You successfully authenticated {}!'.format(other_id))
+                        self._AppendMessage('Your new shared key is {}'.format(self.prtcl._key))
 
                     if return_message:
                         self._SendMutualAuthentication(return_message)
-                    if session_key:
-                        self.prtcl.SetSessionKey(session_key)
 
                 # Otherwise, decrypting and showing the messaage
                 else:
@@ -176,9 +182,8 @@ class Assignment3VPN:
 
     # Send authentication message without encrypting
     def _SendMutualAuthentication(self, message):
-
         self.conn.send(message.encode())
-        self._AppendMessage("Authenticate Message by you: {}".format(message))
+        print("Authenticate Message by you: {}".format(message))
 
     # Send data to the other party
     def _SendMessage(self, message):
@@ -193,7 +198,7 @@ class Assignment3VPN:
         self.secureButton["state"] = "disabled"
 
         # TODO: THIS IS WHERE YOU SHOULD IMPLEMENT THE START OF YOUR MUTUAL AUTHENTICATION AND KEY ESTABLISHMENT PROTOCOL, MODIFY AS YOU SEEM FIT
-        init_message = self.prtcl.GetProtocolInitiationMessage(self._id)
+        init_message = self.prtcl.GetProtocolInitiationMessage()
         self._SendMutualAuthentication(init_message)
 
 
