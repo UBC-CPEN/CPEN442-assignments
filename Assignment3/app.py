@@ -68,11 +68,13 @@ class Assignment3VPN:
     
     # Handle client mode selection
     def ClientModeSelected(self):
+        self.prtcl.SetClientMode()
         self.hostName.set("localhost")
 
 
     # Handle sever mode selection
     def ServerModeSelected(self):
+        self.prtcl.SetServerMode()
         pass
 
 
@@ -154,7 +156,10 @@ class Assignment3VPN:
                     # Disabling the button to prevent repeated clicks
                     self.secureButton["state"] = "disabled"
                     # Processing the protocol message
-                    self.prtcl.ProcessReceivedProtocolMessage(cipher_text)
+                    resp = self.prtcl.ProcessReceivedProtocolMessage(cipher_text, self.sharedSecret.get())
+                    if resp != None:
+                        self.conn.send(resp)
+                    self._AppendLog("Connection secured")
 
                 # Otherwise, decrypting and showing the messaage
                 else:
@@ -179,8 +184,8 @@ class Assignment3VPN:
         self.secureButton["state"] = "disabled"
 
         # TODO: THIS IS WHERE YOU SHOULD IMPLEMENT THE START OF YOUR MUTUAL AUTHENTICATION AND KEY ESTABLISHMENT PROTOCOL, MODIFY AS YOU SEEM FIT
-        init_message = self.prtcl.GetProtocolInitiationMessage()
-        self._SendMessage(init_message)
+        init_message = self.prtcl.GetProtocolInitiationMessage(self.sharedSecret.get())
+        self.conn.send(init_message)
 
 
     # Called when SendMessage button is clicked
