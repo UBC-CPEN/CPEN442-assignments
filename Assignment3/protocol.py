@@ -3,6 +3,7 @@ from Crypto.Random import get_random_bytes
 from Crypto.Random.random import randint
 from Crypto.Hash import SHA3_256
 from datetime import datetime
+import hashlib
 import pickle
 
 class Protocol:
@@ -187,7 +188,9 @@ class Protocol:
         if  self._DHExponent == None: 
                 raise Exception("The DH Exponent is not set yet.")
 
-        self._SessionKey =((pow( OtherPublicDH, self._DHExponent)) % self._p)  
+        sessionkey = ((pow( OtherPublicDH, self._DHExponent)) % self._p)  
+        sessionkey_256b = hashlib.sha256(bytes(str(sessionkey), encoding='utf-8')).hexdigest()
+        self._SessionKey = bytes(sessionkey_256b, 'utf-8')
         print("(Delete later)Here is the session key: " + str(self._SessionKey))
         #self._BootstrapKey = None # no longer need this key
         # self._DHExponent = None  # need to forget this exponent
