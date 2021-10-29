@@ -87,6 +87,7 @@ class Protocol:
 
         self._DHExponent = randint(999, 16384) # generate a random exponent b for g^b mod p
         msg["DiffieHellman"] = ( pow(self._g , self._DHExponent) % self._p ) #generate the DH part key
+        print(msg["DiffieHellman"])
         # msg["DiffieHellman"] = [] # TODO: @Brendon add DH part key here
 
         self._MWait = datetime.now()
@@ -150,13 +151,17 @@ class Protocol:
 
             self._DHExponent = randint(999, 16384) # generate a random exponent b for g^b mod p
             resp["DiffieHellman"] = ( pow(self._g , self._DHExponent) % self._p ) #generate the DH part key
-            # resp["DiffieHellman"] = [] # TODO: @Brendon add DH part key here
+
+            print(resp["DiffieHellman"])
+            print("SetServer Session key")
+            self.SetSessionKey(msg["DiffieHellman"])
+
             return self.EncryptAndProtectProtocol(pickle.dumps(resp))
         else:
             # We are processing a response
             # TODO @Brendon generate set session key with DH exponent we've already set
+            print("SetClient Session key")
             self.SetSessionKey(msg["DiffieHellman"]) # For now put 1, still waiting for the decryption implmentation, so i can get the DH part key from the received message.
-            pass
 
         self._DHExponent = None
         self._MWait = None
@@ -181,9 +186,8 @@ class Protocol:
 
         self._SessionKey =((pow( OtherPublicDH, self._DHExponent)) % self._p)  # not sure what type will the _Sessionkey be. 
         print("(Delete later)Here is the session key: " + str(self._SessionKey))
-        ###self._SessionKey = b'PASSWORD' # use g^a mod p and our DH exponent to calculate session key
         self._BootstrapKey = None # no longer need this key
-        self._DHExponent = None  # need to forget this exponent
+        # self._DHExponent = None  # need to forget this exponent
         pass  #may delete later
 
     def EncryptAndProtectMessage(self, plain_text):
