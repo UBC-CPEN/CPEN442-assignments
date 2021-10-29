@@ -53,7 +53,7 @@ class Protocol:
 
         long_key = hash_object.digest()
 
-        self._BootstrapKey = [long_key[i] ^ long_key[i+16] for i in range(16)] # converts 32B hash to 16B key
+        self._BootstrapKey = bytes([long_key[i] ^ long_key[i+16] for i in range(16)])  # converts 32B hash to 16B key
 
     def SetClientMode(self):
         """Sets mode to client"""
@@ -86,8 +86,10 @@ class Protocol:
         msg["DiffieHellman"] = [] # TODO: @Brendon add DH part key here
 
         self._MWait = datetime.now()
-        
-        return InitMessage + pickle.dumps(msg)
+
+        # Encrypting the message
+        return self.EncryptAndProtectProtocol(InitMessage + pickle.dumps(msg))
+        # return InitMessage + pickle.dumps(msg)
 
     def IsMessagePartOfProtocol(self, message):
         """Checking if a received message is part of your protocol (called from app.py)"""
@@ -105,6 +107,8 @@ class Protocol:
         Raises:
         Exception: if authentication fails
         """
+        # Decrypting the message
+        message = self.DecryptAndVerifyProtocol(message)
         message = message[len(self._ServerInitVal):]
         msg = pickle.loads(message)
 
@@ -168,20 +172,45 @@ class Protocol:
         self._BootstrapKey = None # no longer need this key
         pass
 
-    # TODO: @sanjeev IMPLEMENT ENCRYPTION WITH THE SESSION KEY (ALSO INCLUDE ANY NECESSARY INFO IN THE ENCRYPTED MESSAGE FOR INTEGRITY PROTECTION)
     def EncryptAndProtectMessage(self, plain_text):
         """
         Encrypting messages and tag
         RETURN AN ERROR MESSAGE IF INTEGRITY VERITIFCATION OR AUTHENTICATION FAILS
         """
-        cipher_text = plain_text
-        return cipher_text
+        if(self._SessionKey == None):
+            return plain_text
+        cipher = AES.new(self._SessionKey, AES.MODE_EAX)
+        nonce = cipher.nonce
+        cipher_text, tag = cipher.encrypt_and_digest(
+            plain_text.encode('ascii'))
+        return (nonce, cipher_text, tag)
 
-    # TODO: @sanjeev IMPLEMENT DECRYPTION AND INTEGRITY CHECK WITH THE SESSION KEY
     def DecryptAndVerifyMessage(self, cipher_text):
         """
         Decrypting and verifying messages
         RETURN AN ERROR MESSAGE IF INTEGRITY VERITIFCATION OR AUTHENTICATION FAILS
         """
-        plain_text = cipher_text
+        if(self._SessionKey == None):
+            return cipher_text
+        nonce, cipher_text, tag = cipher_text
+        cipher = AES.new(self._SessionKey, AES.MODE_EAX, nonce=nonce)
+        plain_text = cipher.decrypt_and_verify(cipher_text, tag)
+        return plain_text.decode('ascii') 
+
+    def EncryptAndProtectProtocol(self, plain_text):
+        """
+        Encrypting the protocol
+        """
+        cipher = AES.new(self._BootstrapKey, AES.MODE_EAX)
+        nonce = cipher.nonce
+        cipher_text, tag = cipher.encrypt_and_digest(plain_text)
+        return pickle.dumps((nonce, cipher_text, tag))
+
+    def DecryptAndVerifyProtocol(self, cipher_text):
+        """
+        Decrypting and verifying the protocol
+        """
+        nonce, cipher_text, tag = pickle.loads(cipher_text)
+        cipher = AES.new(self._BootstrapKey, AES.MODE_EAX, nonce=nonce)
+        plain_text = cipher.decrypt_and_verify(cipher_text, tag)
         return plain_text
