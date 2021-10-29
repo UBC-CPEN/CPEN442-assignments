@@ -1,5 +1,6 @@
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
+from Crypto.Random.random import randint
 from Crypto.Hash import SHA3_256
 from datetime import datetime
 import pickle
@@ -32,8 +33,8 @@ class Protocol:
         self._DHExponent    = None
         self._AuthNonceLen  = 16
         self._AuthNonce     = None
-        self._g             = None
-        self._p             = None
+        self._g             = 2
+        self._p             = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
         self._ClientInitVal = b'Client protocol initiation message'
         self._ServerInitVal = b'Server protocol initiation message'
         self._MWait         = None
@@ -83,7 +84,10 @@ class Protocol:
         ts_bytes = str(timestamp).encode()
 
         msg["EncryptedTS"] = ts_bytes # TODO: @Sanjeev encrypt with bootstap key
-        msg["DiffieHellman"] = [] # TODO: @Brendon add DH part key here
+
+        self._DHExponent = randint(999, 16384) # generate a random exponent b for g^b mod p
+        msg["DiffieHellman"] = ( pow(self._g , self._DHExponent) % self._p ) #generate the DH part key
+        # msg["DiffieHellman"] = [] # TODO: @Brendon add DH part key here
 
         self._MWait = datetime.now()
 
@@ -143,11 +147,15 @@ class Protocol:
             ts_bytes = str(timestamp).encode()
 
             resp["EncryptedTS"] = ts_bytes # TODO: @Sanjeev encrypt with bootstap key
-            resp["DiffieHellman"] = [] # TODO: @Brendon add DH part key here
+
+            self._DHExponent = randint(999, 16384) # generate a random exponent b for g^b mod p
+            resp["DiffieHellman"] = ( pow(self._g , self._DHExponent) % self._p ) #generate the DH part key
+            # resp["DiffieHellman"] = [] # TODO: @Brendon add DH part key here
             return self.EncryptAndProtectProtocol(pickle.dumps(resp))
         else:
             # We are processing a response
             # TODO @Brendon generate set session key with DH exponent we've already set
+            self.SetSessionKey(msg["DiffieHellman"]) # For now put 1, still waiting for the decryption implmentation, so i can get the DH part key from the received message.
             pass
 
         self._DHExponent = None
@@ -165,9 +173,18 @@ class Protocol:
         Raises:
         Exception: if self._DHExponent == None
         """
-        self._SessionKey = b'PASSWORD' # use g^a mod p and our DH exponent to calculate session key
+        if  OtherPublicDH == None:
+                raise Exception("Did not get a valid DH partcial key from other side.")
+
+        if  self._DHExponent == None: 
+                raise Exception("The DH Exponent is not set yet.")
+
+        self._SessionKey =((pow( OtherPublicDH, self._DHExponent)) % self._p)  # not sure what type will the _Sessionkey be. 
+        print("(Delete later)Here is the session key: " + str(self._SessionKey))
+        ###self._SessionKey = b'PASSWORD' # use g^a mod p and our DH exponent to calculate session key
         self._BootstrapKey = None # no longer need this key
-        pass
+        self._DHExponent = None  # need to forget this exponent
+        pass  #may delete later
 
     def EncryptAndProtectMessage(self, plain_text):
         """
