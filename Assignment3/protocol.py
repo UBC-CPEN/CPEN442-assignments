@@ -31,6 +31,7 @@ class Protocol:
         self._ServerMode    = True
         self._DHExponent    = None
         self._AuthNonceLen  = 16
+        self._AuthNonce     = None
         self._g             = None
         self._p             = None
         self._ClientInitVal = b'Client protocol initiation message'
@@ -71,14 +72,13 @@ class Protocol:
     def GetProtocolInitiationMessage(self, secret):
         """Creating the initial message of your protocol (to be send to the other party to bootstrap the protocol)"""
         msg = {}
-        AuthNonce = self.GenerateNonce()
+        self._AuthNonce = self.GenerateNonce()
         if self._ServerMode:
             InitMessage = self._ServerInitVal
         else:
             InitMessage = self._ClientInitVal
 
-        self.SetBootstrapKey(AuthNonce, secret)
-        msg["AuthNonce"] = AuthNonce
+        self.SetBootstrapKey(self._AuthNonce, secret)
         timestamp = datetime.today().timestamp()
         ts_bytes = str(timestamp).encode()
 
@@ -88,14 +88,12 @@ class Protocol:
         self._MWait = datetime.now()
 
         # Encrypting the message
-        return self.EncryptAndProtectProtocol(InitMessage + pickle.dumps(msg))
+        return self.EncryptAndProtectProtocol(pickle.dumps(msg))
         # return InitMessage + pickle.dumps(msg)
 
     def IsMessagePartOfProtocol(self, message):
         """Checking if a received message is part of your protocol (called from app.py)"""
-        if self._ServerMode == True and message.find(self._ClientInitVal) == 0:
-            return True
-        if self._ServerMode == False and message.find(self._ServerInitVal) == 0:
+        if self._BootstrapKey == None or self._SessionKey == None:
             return True
         return False
 
@@ -108,14 +106,14 @@ class Protocol:
         Exception: if authentication fails
         """
         # Decrypting the message
-        message = self.DecryptAndVerifyProtocol(message)
-        message = message[len(self._ServerInitVal):]
+        message = self.DecryptAndVerifyProtocol(message, secret)
+        #message = message[len(self._ServerInitVal):]
         msg = pickle.loads(message)
-
+        
         if type(msg) is not dict:
             raise Exception("Improper protocol message")
         if "EncryptedTS" not in msg:
-                raise Exception("Improper protocol message")
+            raise Exception("Improper protocol message")
         
         if "AuthNonce" in msg and self._MWait != None and  self._ServerMode:
             # if we both try to secure at the same time, the client gets priority and the server abandons their attempt and responds to the client
@@ -123,12 +121,12 @@ class Protocol:
             self._DHExponent = None
             self._BootstrapKey = None
             
-        if self._MWait == None:
-            # other is initiating
-            if "AuthNonce" not in msg:
-                raise Exception("Improper protocol message")
-            AuthNonce = msg["AuthNonce"]
-            self.SetBootstrapKey(AuthNonce, secret)
+        # if self._MWait == None:
+        #     # other is initiating
+        #     if "AuthNonce" not in msg:
+        #         raise Exception("Improper protocol message")
+        #     AuthNonce = msg["AuthNonce"]
+        #     self.SetBootstrapKey(AuthNonce, secret)
         
         TSBytes = msg["EncryptedTS"] # TODO: @Sanjeev decrypt and throw error if incorrect
         TSSeconds = float(TSBytes.decode())
@@ -146,8 +144,7 @@ class Protocol:
 
             resp["EncryptedTS"] = ts_bytes # TODO: @Sanjeev encrypt with bootstap key
             resp["DiffieHellman"] = [] # TODO: @Brendon add DH part key here
-
-            return response + pickle.dumps(resp)
+            return self.EncryptAndProtectProtocol(pickle.dumps(resp))
         else:
             # We are processing a response
             # TODO @Brendon generate set session key with DH exponent we've already set
@@ -204,13 +201,14 @@ class Protocol:
         cipher = AES.new(self._BootstrapKey, AES.MODE_EAX)
         nonce = cipher.nonce
         cipher_text, tag = cipher.encrypt_and_digest(plain_text)
-        return pickle.dumps((nonce, cipher_text, tag))
+        return pickle.dumps((nonce, cipher_text, tag, self._AuthNonce))
 
-    def DecryptAndVerifyProtocol(self, cipher_text):
+    def DecryptAndVerifyProtocol(self, cipher_text, secret):
         """
         Decrypting and verifying the protocol
         """
-        nonce, cipher_text, tag = pickle.loads(cipher_text)
+        nonce, cipher_text, tag, self._AuthNonce = pickle.loads(cipher_text)
+        self.SetBootstrapKey(self._AuthNonce, secret)
         cipher = AES.new(self._BootstrapKey, AES.MODE_EAX, nonce=nonce)
         plain_text = cipher.decrypt_and_verify(cipher_text, tag)
         return plain_text

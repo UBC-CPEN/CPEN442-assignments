@@ -144,7 +144,6 @@ class Assignment3VPN:
             try:
                 # Receiving all the data
                 cipher_text = self.conn.recv(4096)
-                print(cipher_text)
 
                 # Check if socket is still open
                 if cipher_text == None or len(cipher_text) == 0:
