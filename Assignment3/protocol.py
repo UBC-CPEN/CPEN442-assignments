@@ -24,8 +24,6 @@ class Protocol:
     _MWait (datetime):      the time we send our protocol initiation
     """
 
-    # TODO: MODIFY ARGUMENTS AND LOGIC AS YOU SEEM FIT
-    # TODO: @Brendon and Joshua add DH constants (g and p)
     def __init__(self):
         """initializes all variables to None"""
         self._SessionKey    = None
@@ -48,7 +46,6 @@ class Protocol:
         AuthNonce (byte[]): Random nonce to hash with secret string
         secret (String): Secret string of arbitrary length
         """
-        
         # h(nonce|secret)
         hash_object = SHA3_256.new(data=AuthNonce)
         secret_bytes = str.encode(secret)
@@ -70,32 +67,24 @@ class Protocol:
         """Generates a cryptographically secure random nonce"""
         return get_random_bytes(self._AuthNonceLen)
 
-    # TODO: @Brendon and Joshua IMPLEMENT THE LOGIC (MODIFY THE INPUT ARGUMENTS AS YOU SEEM FIT)
     def GetProtocolInitiationMessage(self, secret):
         """Creating the initial message of your protocol (to be send to the other party to bootstrap the protocol)"""
         msg = {}
         self._AuthNonce = self.GenerateNonce()
-        if self._ServerMode:
-            InitMessage = self._ServerInitVal
-        else:
-            InitMessage = self._ClientInitVal
 
         self.SetBootstrapKey(self._AuthNonce, secret)
         timestamp = datetime.today().timestamp()
         ts_bytes = str(timestamp).encode()
 
-        msg["EncryptedTS"] = ts_bytes # TODO: @Sanjeev encrypt with bootstap key
+        msg["EncryptedTS"] = ts_bytes
 
         self._DHExponent = randint(999, 16384) # generate a random exponent b for g^b mod p
         msg["DiffieHellman"] = ( pow(self._g , self._DHExponent) % self._p ) #generate the DH part key
-        print(msg["DiffieHellman"])
-        # msg["DiffieHellman"] = [] # TODO: @Brendon add DH part key here
 
         self._MWait = datetime.now()
 
         # Encrypting the message
         return self.EncryptAndProtectProtocol(pickle.dumps(msg))
-        # return InitMessage + pickle.dumps(msg)
 
     def IsMessagePartOfProtocol(self, message):
         """Checking if a received message is part of your protocol (called from app.py)"""
@@ -103,7 +92,6 @@ class Protocol:
             return True
         return False
 
-    # TODO: @Brendon and Joshua IMPLEMENT THE LOGIC (CALL SetSessionKey ONCE YOU HAVE THE KEY ESTABLISHED)
     def ProcessReceivedProtocolMessage(self, message, secret):
         """
         Processing protocol message
@@ -111,13 +99,9 @@ class Protocol:
         Raises:
         Exception: if authentication fails
         """
-        print("aaaaaaaaaaaaaaaaa")
         # Decrypting the message
         message = self.DecryptAndVerifyProtocol(message, secret)
-
-        #message = message[len(self._ServerInitVal):]
         msg = pickle.loads(message)
-
         
         if type(msg) is not dict:
             raise Exception("Improper protocol message")
@@ -125,53 +109,40 @@ class Protocol:
             raise Exception("Improper protocol message")
         
         if "AuthNonce" in msg and self._MWait != None and  self._ServerMode:
-            # if we both try to secure at the same time, the client gets priority and the server abandons their attempt and responds to the client
+            # if we both try to secure at the same time, 
+            # the client gets priority and the server abandons their attempt and responds to the client
             self._MWait = None
             self._DHExponent = None
             self._BootstrapKey = None
-            
-        # if self._MWait == None:
-        #     # other is initiating
-        #     if "AuthNonce" not in msg:
-        #         raise Exception("Improper protocol message")
-        #     AuthNonce = msg["AuthNonce"]
-        #     self.SetBootstrapKey(AuthNonce, secret)
         
-        TSBytes = msg["EncryptedTS"] # TODO: @Sanjeev decrypt and throw error if incorrect
+        TSBytes = msg["EncryptedTS"]
         TSSeconds = float(TSBytes.decode())
         TSAge = datetime.today().timestamp() - TSSeconds
         # TODO: @Joshua compare timestamps and throw exception if TS is old
 
         if self._MWait == None:
             # We are responding to an initation
-            # TODO @Brendon generate DH exponent and set session key
             resp = {}
-            response = self._ServerInitVal if self._ServerMode else self._ClientInitVal
 
             timestamp = datetime.today().timestamp()
             ts_bytes = str(timestamp).encode()
 
-            resp["EncryptedTS"] = ts_bytes # TODO: @Sanjeev encrypt with bootstap key
+            resp["EncryptedTS"] = ts_bytes
 
             self._DHExponent = randint(999, 16384) # generate a random exponent b for g^b mod p
             resp["DiffieHellman"] = ( pow(self._g , self._DHExponent) % self._p ) #generate the DH part key
-            print(resp["DiffieHellman"])
-            print("SetServer Session key")
             self.SetSessionKey(msg["DiffieHellman"])
 
 
             return self.EncryptAndProtectProtocol(pickle.dumps(resp))
         else:
             # We are processing a response
-            # TODO @Brendon generate set session key with DH exponent we've already set
-            print("SetClient Session key")
             self.SetSessionKey(msg["DiffieHellman"]) # For now put 1, still waiting for the decryption implmentation, so i can get the DH part key from the received message.
 
         self._DHExponent = None
         self._MWait = None
         return None
 
-    # TODO: @Brendon calculate DH shared secret
     def SetSessionKey(self, OtherPublicDH):
         """
         Setting the key for the current session
@@ -189,10 +160,10 @@ class Protocol:
                 raise Exception("The DH Exponent is not set yet.")
 
         sessionkey = ((pow( OtherPublicDH, self._DHExponent)) % self._p)  
-        sessionkey_256b = hashlib.sha256(bytes(str(sessionkey), encoding='utf-8')).hexdigest()
+        sessionkey_256b = hashlib.shake_256(
+            bytes(str(sessionkey), encoding='utf-8')).hexdigest(8)
         self._SessionKey = bytes(sessionkey_256b, 'utf-8')
-        print("(Delete later)Here is the session key: " + str(self._SessionKey))
-        #self._BootstrapKey = None # no longer need this key
+        # self._BootstrapKey = None # no longer need this key
         # self._DHExponent = None  # need to forget this exponent
         #pass  #may delete later
 
