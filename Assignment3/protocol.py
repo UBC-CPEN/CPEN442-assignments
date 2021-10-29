@@ -110,10 +110,13 @@ class Protocol:
         Raises:
         Exception: if authentication fails
         """
+        print("aaaaaaaaaaaaaaaaa")
         # Decrypting the message
         message = self.DecryptAndVerifyProtocol(message, secret)
+
         #message = message[len(self._ServerInitVal):]
         msg = pickle.loads(message)
+
         
         if type(msg) is not dict:
             raise Exception("Improper protocol message")
@@ -151,10 +154,10 @@ class Protocol:
 
             self._DHExponent = randint(999, 16384) # generate a random exponent b for g^b mod p
             resp["DiffieHellman"] = ( pow(self._g , self._DHExponent) % self._p ) #generate the DH part key
-
             print(resp["DiffieHellman"])
             print("SetServer Session key")
             self.SetSessionKey(msg["DiffieHellman"])
+
 
             return self.EncryptAndProtectProtocol(pickle.dumps(resp))
         else:
@@ -184,11 +187,11 @@ class Protocol:
         if  self._DHExponent == None: 
                 raise Exception("The DH Exponent is not set yet.")
 
-        self._SessionKey =((pow( OtherPublicDH, self._DHExponent)) % self._p)  # not sure what type will the _Sessionkey be. 
+        self._SessionKey =((pow( OtherPublicDH, self._DHExponent)) % self._p)  
         print("(Delete later)Here is the session key: " + str(self._SessionKey))
-        self._BootstrapKey = None # no longer need this key
+        #self._BootstrapKey = None # no longer need this key
         # self._DHExponent = None  # need to forget this exponent
-        pass  #may delete later
+        #pass  #may delete later
 
     def EncryptAndProtectMessage(self, plain_text):
         """
