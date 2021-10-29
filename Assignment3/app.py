@@ -164,7 +164,7 @@ class Assignment3VPN:
                 # Otherwise, decrypting and showing the messaage
                 else:
                     plain_text = self.prtcl.DecryptAndVerifyMessage(cipher_text)
-                    self._AppendMessage("Other: {}".format(plain_text.decode()))
+                    self._AppendMessage("Other: {}".format(plain_text))
                     
             except Exception as e:
                 self._AppendLog("RECEIVER_THREAD: Error receiving data: {}".format(str(e)))
@@ -175,7 +175,7 @@ class Assignment3VPN:
     def _SendMessage(self, message):
         plain_text = message
         cipher_text = self.prtcl.EncryptAndProtectMessage(plain_text)
-        self.conn.send(cipher_text.encode())
+        self.conn.send(cipher_text)
             
 
     # Secure connection with mutual authentication and key establishment

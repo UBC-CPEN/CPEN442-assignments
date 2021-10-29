@@ -207,7 +207,7 @@ class Protocol:
         nonce = cipher.nonce
         cipher_text, tag = cipher.encrypt_and_digest(
             plain_text.encode('ascii'))
-        return (nonce, cipher_text, tag)
+        return pickle.dumps((nonce, cipher_text, tag))
 
     def DecryptAndVerifyMessage(self, cipher_text):
         """
@@ -216,7 +216,7 @@ class Protocol:
         """
         if(self._SessionKey == None):
             return cipher_text
-        nonce, cipher_text, tag = cipher_text
+        nonce, cipher_text, tag = pickle.loads(cipher_text)
         cipher = AES.new(self._SessionKey, AES.MODE_EAX, nonce=nonce)
         plain_text = cipher.decrypt_and_verify(cipher_text, tag)
         return plain_text.decode('ascii') 
