@@ -20,6 +20,7 @@ class Protocol:
     _p (int):               (CONSTANT) our protocol's DH prime
     InitVal (bytes):        a bytes identifying our protocol's initiation message
     _MWait (datetime):      the time we send our protocol initiation
+    _MaxTSAge (float):      max time in seconds between now and message timestamp before we reject timestamp
     """
 
     def __init__(self):
@@ -34,7 +35,7 @@ class Protocol:
         self._p             = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
         self._InitVal       = b'Protocol initiation message'
         self._MWait         = None
-        pass
+        self._MaxTSAge      = 30 # set this high because DH can take some time to calculate
 
     def SetBootstrapKey(self, AuthNonce, secret):
         """
@@ -118,7 +119,8 @@ class Protocol:
         
         timestamp = msg["timestamp"]
         TSAge = datetime.today().timestamp() - timestamp
-        # TODO: @Joshua compare timestamps and throw exception if TS is old
+        if TSAge > self._MaxTSAge:
+            raise Exception("Old timestamp!")
 
         if self._MWait == None:
             # We are responding to an initation
@@ -178,8 +180,8 @@ class Protocol:
         Decrypting and verifying messages
         RETURN AN ERROR MESSAGE IF INTEGRITY VERITIFCATION OR AUTHENTICATION FAILS
         """
-        if self.IsSecure():
-            return "WARNING - UNPROTECTED MESSAGE:" + cipher_text
+        if not self.IsSecure():
+            return "WARNING - UNPROTECTED MESSAGE:" + cipher_text.decode('ascii')
         nonce_hex, cipher_text_hex, tag_hex = json.loads(cipher_text.decode())
 
         nonce = bytes.fromhex(nonce_hex)
