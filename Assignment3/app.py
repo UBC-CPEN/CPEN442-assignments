@@ -174,9 +174,14 @@ class Assignment3VPN:
     # Send data to the other party
     def _SendMessage(self, message):
         plain_text = message
-        cipher_text = self.prtcl.EncryptAndProtectMessage(plain_text)
-        self.conn.send(cipher_text)
-            
+        if self.prtcl.IsSecure():
+            try:
+                cipher_text = self.prtcl.EncryptAndProtectMessage(plain_text)
+                self.conn.send(cipher_text)
+            except Exception as e:
+                    self._AppendLog("SENDING_MESSAGE: Error encrypting data: {}".format(str(e)))
+        else:
+            self._AppendLog("SENDING_MESSAGE: Secure connection has not been made. It is unsafe to send data.")
 
     # Secure connection with mutual authentication and key establishment
     def SecureConnection(self):
