@@ -91,6 +91,12 @@ class Protocol:
             return True
         return False
 
+    def IsSecure(self):
+        """Checking if protocol is ready to send secure messages"""
+        if self._SessionKey == None:
+            return False
+        return True
+
     def ProcessReceivedProtocolMessage(self, message, secret):
         """
         Processing protocol message
