@@ -187,7 +187,10 @@ class Protocol:
         tag = bytes.fromhex(tag_hex)
 
         cipher = AES.new(self._SessionKey, AES.MODE_EAX, nonce=nonce)
-        plain_text = cipher.decrypt_and_verify(cipher_text, tag)
+        try:
+            plain_text = cipher.decrypt_and_verify(cipher_text, tag)
+        except ValueError as e:
+            raise ValueError("INCORRECT SESSION KEY: a message was sent with the incorrect session key. it may have been tampered with and it cannot be decrypted.")
         return plain_text.decode('ascii') 
 
     def EncryptAndProtectProtocol(self, plain_text):
@@ -212,5 +215,8 @@ class Protocol:
 
         self.SetBootstrapKey(self._AuthNonce, secret)
         cipher = AES.new(self._BootstrapKey, AES.MODE_EAX, nonce=nonce)
-        plain_text = cipher.decrypt_and_verify(cipher_text, tag)
+        try:
+            plain_text = cipher.decrypt_and_verify(cipher_text, tag)
+        except ValueError as e:
+            raise ValueError("INCORRECT SHARED SECRET: either your password is wrong, their password is wrong or someone has tampered with the message!")
         return plain_text
