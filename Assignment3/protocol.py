@@ -44,7 +44,7 @@ class Protocol:
 
         cipher_text = ctrcipher.nonce + ctrcipher.encrypt(plain_text.encode('utf-8'))
 
-        hmac.update(plain_text.encode('utf-8'))
+        hmac.update(cipher_text)
         cipher_text += hmac.digest()
 
         return cipher_text
@@ -57,10 +57,10 @@ class Protocol:
         ctrcipher = AES.new(self._skey, AES.MODE_CTR, nonce=cipher_text[:8])
         hmac = Crypto.Hash.HMAC.new(self._ikey)
 
-        plain_bytes = ctrcipher.decrypt(cipher_text[8:-16])
-
-        hmac.update(plain_bytes)
+        hmac.update(cipher_text[:-16])
         hmac.verify(cipher_text[-16:])
+
+        plain_bytes = ctrcipher.decrypt(cipher_text[8:-16])
 
         return plain_bytes.decode('utf-8')
 
