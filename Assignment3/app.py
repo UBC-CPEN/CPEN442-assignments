@@ -179,6 +179,23 @@ class Assignment3VPN:
         self.secureButton["state"] = "disabled"
 
         # TODO: THIS IS WHERE YOU SHOULD IMPLEMENT THE START OF YOUR MUTUAL AUTHENTICATION AND KEY ESTABLISHMENT PROTOCOL, MODIFY AS YOU SEEM FIT
+        # wrote down the pseudocode idea for the key establishment here: 
+        """ 
+        if client_side: 
+            init_msg = self.prtcl.getinitmsg
+            self.sendmsg(initmsg) 
+            newmsg = self.rcvmsg()
+        if server_side: 
+            msg = self._rcvmsg
+            ProcessMsg(msg) <--- must make sure this is called b4 creating and sending another msg in order to set the timestamp in the protocol self object so that the 
+                                Timestamp + 1 sent by the server in its initiation message is the timestamp of the received message + 1. 
+                                Also, the skey and ikey cannot be calculated inside of ProcessMsg, has to be done out here because processMsg gets the timestamp, but getinitmsg is what
+                                initializes the a and the b from client and server side respectively, so we cant construct the key before calling getinitmsg, but processmsg has to be called 
+                                before getinitmsg in order to put the timestamp in the protocol's self object. 
+            newmsg = self.prtcl.getinitmsg
+            self.sendmsg(initmsg)
+        """
+
         init_message = self.prtcl.GetProtocolInitiationMessage()
         self._SendMessage(init_message)
 
