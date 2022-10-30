@@ -185,6 +185,8 @@ class Assignment3VPN:
             init_msg = self.prtcl.getinitmsg
             self.sendmsg(initmsg) 
             newmsg = self.rcvmsg()
+            build_skey, these parts will need a lotta byte manip of the text due to the shit we're using 
+            build_ikey
         if server_side: 
             msg = self._rcvmsg
             ProcessMsg(msg) <--- must make sure this is called b4 creating and sending another msg in order to set the timestamp in the protocol self object so that the 
@@ -194,6 +196,8 @@ class Assignment3VPN:
                                 before getinitmsg in order to put the timestamp in the protocol's self object. 
             newmsg = self.prtcl.getinitmsg
             self.sendmsg(initmsg)
+            build_skey
+            build_ikey
         """
 
         init_message = self.prtcl.GetProtocolInitiationMessage()
