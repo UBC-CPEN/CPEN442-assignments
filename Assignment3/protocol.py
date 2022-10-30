@@ -2,7 +2,6 @@ from __future__ import generator_stop
 import Crypto.Hash.HMAC
 from Crypto.Cipher import AES
 import time
-import random
 import os
 
 # generator and modulus chosen from rfc3526, specifically groups #14 and #15. 
