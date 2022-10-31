@@ -27,7 +27,6 @@ class Protocol:
         self.sharedSecret = None
         self.timestamp = 0
         self.clientsConnectionStates = {} # populated by Server only, only one entry for Client (one per connected client for server)
-        self.keysDict = {} # only populated by Server, client uses _skey and _ikey
 
     def setSharedSecret(self,ss):
         h = SHA256.new()
@@ -71,6 +70,9 @@ class Protocol:
             return True
         return val
 
+    def int_to_bytes(self,i):
+        return i.to_bytes(length=((i.bit_length() + 7) // 8), byteorder='big')
+
     # Processing protocol message
     # TODO: IMPLMENET THE LOGIC (CALL SetSessionKey ONCE YOU HAVE THE KEY ESTABLISHED)
     # THROW EXCEPTION IF AUTHENTICATION FAILS
@@ -95,7 +97,11 @@ class Protocol:
             if self.timestamp + 1 != timestamp:
                 raise Exception("Timestamp does not match, could not complete key establishment")
             BEncPKey, BIntPKey = second.split('|')
-            self.SetSessionKey(pow(int(BEncPKey),self._skey,modulus), pow(int(BIntPKey),self._ikey, modulusP))
+            h = SHA256.new()
+            h.update(self.int_to_bytes(pow(int(BEncPKey),self._skey,modulus)))
+            h2 = SHA256.new()
+            h2.update(self.int_to_bytes(pow(int(BIntPKey),self._ikey, modulusP)))
+            self.SetSessionKey(h.digest(),h2.digest())
             return None
         else:
             if first[:4] != "CLNT":
@@ -110,7 +116,11 @@ class Protocol:
             partialEncKey = pow(generator, b, modulus)
             partialIntKey = pow(generatorP, bP, modulusP)
             AEncPKey,AIntPKey = second.split('|')
-            self.keysDict[ip_address] = (pow(int(AEncPKey),b,modulus),pow(int(AIntPKey),bP,modulusP))
+            h = SHA256.new()
+            h.update(self.int_to_bytes(pow(int(AEncPKey),b,modulus)))
+            h2 = SHA256.new()
+            h2.update(self.int_to_bytes(pow(int(AIntPKey),bP,modulusP)))
+            self.SetSessionKey(h.digest(),h2.digest())
             data = "SRVR" + str(timestamp+1) + "|" + str(partialEncKey) + "|" + str(partialIntKey)
 
             ciphertext, MAC_tag = cipher.encrypt_and_digest(data.encode('utf-8'))
@@ -150,11 +160,10 @@ class Protocol:
     # RETURN AN ERROR MESSAGE IF INTEGRITY VERITIFCATION OR AUTHENTICATION FAILS
     def DecryptAndVerifyMessage(self, cipher_text, ip_address):
         assert ip_address is not None
-        (sk,ik) = self.keysDict[ip_address]
-        if sk is None or ik is None:
+        if self._skey is None or self._ikey is None:
             raise Exception("Bad session or integrity key - Key establishment failed?")
-        ctrcipher = AES.new(sk, AES.MODE_CTR, nonce=cipher_text[:8])
-        hmac = Crypto.Hash.HMAC.new(ik)
+        ctrcipher = AES.new(self._skey, AES.MODE_CTR, nonce=cipher_text[:8])
+        hmac = Crypto.Hash.HMAC.new(self._ikey)
 
         hmac.update(cipher_text[:-16])
         hmac.verify(cipher_text[-16:])
