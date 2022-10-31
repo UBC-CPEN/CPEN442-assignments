@@ -1,6 +1,7 @@
 from __future__ import generator_stop
 import Crypto.Hash.HMAC
 from Crypto.Cipher import AES
+from Crypto.Hash import SHA256
 import time
 import os
 
@@ -29,7 +30,9 @@ class Protocol:
         self.keysDict = {} # only populated by Server, client uses _skey and _ikey
 
     def setSharedSecret(self,ss):
-        self.sharedSecret = ss
+        h = SHA256.new()
+        h.update(ss.encode('utf-8'))
+        self.sharedSecret = h.digest()
 
     # Creating the initial message of your protocol (to be send to the other party to bootstrap the protocol)
     #Only called by clients
@@ -42,11 +45,11 @@ class Protocol:
         # as for choice on the exponent bit-size, there was a section in the rfc document used above that said that the exponent should be roughly 2x the bit-strength of the group we chose (last paragraph introduction section)
         # by looking at the table, group 14 had a bit strength of 110, group 15 had 130, thus I chose 256 as the exponent bit-size for both. 
 
-        a = os.urandom(256)
-        aP = os.urandom(256)
+        a = int.from_bytes(os.urandom(256),byteorder='big')
+        aP = int.from_bytes(os.urandom(256),byteorder='big')
         partialEncKey = pow(generator,a,modulus)
         partialIntKey = pow(generatorP,aP,modulusP)
-        self.SetSessionKey(partialEncKey,partialIntKey)
+        self.SetSessionKey(a,aP)
         self.timestamp = int(time.time())
         timestamp = str(self.timestamp)
         data = "CLNT"  + timestamp + "|"+ str(partialEncKey) + "|" + str(partialIntKey)
@@ -56,7 +59,7 @@ class Protocol:
         # realized that the mac_tag that is acquired from the encrypt_and_digest function is actually a second level mac.
         # effectively, the encrypt function (to my understanding) replicates precisely what the entire thing does, aka what AES-CCM does in this case, and then encrypt_and_digest adds a mac to that scheme
         # simply due to the fact that every single mode has an encrypt_and_digest function that can be used, 
-        return ciphertext + MAC_tag
+        return cipher.nonce + ciphertext + MAC_tag
 
 
     # Checking if a received message is part of your protocol (called from app.py)
@@ -64,7 +67,7 @@ class Protocol:
     def IsMessagePartOfProtocol(self,ip_address):
         val = self.clientsConnectionStates.get(ip_address)
         if val is None:
-            self.clientsConnectionStates.update(ip_address, False)
+            self.clientsConnectionStates.update({ip_address: False})
             return True
         return val
 
@@ -73,12 +76,14 @@ class Protocol:
     # THROW EXCEPTION IF AUTHENTICATION FAILS
     def ProcessReceivedProtocolMessage(self, message, isClient, ip_address):
         assert self.sharedSecret is not None
-        assert len(message>16)
+        assert len(message)>16
         assert ip_address is not None
-        cipher = AES.new(self.sharedSecret, AES.MODE_CCM)
-        ciphertext = message[:-16]  # I'm Alice represents first 9 bytes, last 16 bytes are the MAC
         mac = message[-16:]
-        plaintext = cipher.decrypt_and_verify(ciphertext,mac)
+        nonce = message[:11]
+        ciphertext = message[11:-16]  # I'm Alice represents first 11 byte nonce needed for AES, 16 byte MAC
+        cipher = AES.new(self.sharedSecret, AES.MODE_CCM,nonce=nonce)
+        plaintext = cipher.decrypt_and_verify(ciphertext,mac).decode('utf-8')
+
         # get the timestamp
         first, second = plaintext.split('|', 1)
         timestamp = int(first[4:])
@@ -87,7 +92,7 @@ class Protocol:
             if first[:4] != "SRVR":
                 raise Exception("SRVR tag not found, could not complete key establishment")
             # verify timestamp
-            if self.timestamp + 1 == timestamp:
+            if self.timestamp + 1 != timestamp:
                 raise Exception("Timestamp does not match, could not complete key establishment")
             BEncPKey, BIntPKey = second.split('|')
             self.SetSessionKey(pow(int(BEncPKey),self._skey,modulus), pow(int(BIntPKey),self._ikey, modulusP))
@@ -100,8 +105,8 @@ class Protocol:
             # link here: https://cryptography.io/en/latest/random-numbers/
             # as for choice on the exponent bit-size, there was a section in the rfc document used above that said that the exponent should be roughly 2x the bit-strength of the group we chose (last paragraph introduction section)
             # by looking at the table, group 14 had a bit strength of 110, group 15 had 130, thus I chose 256 as the exponent bit-size for both.
-            b = os.urandom(256)
-            bP = os.urandom(256)
+            b = int.from_bytes(os.urandom(256),byteorder='big')
+            bP = int.from_bytes(os.urandom(256),byteorder='big')
             partialEncKey = pow(generator, b, modulus)
             partialIntKey = pow(generatorP, bP, modulusP)
             AEncPKey,AIntPKey = second.split('|')
@@ -109,7 +114,7 @@ class Protocol:
             data = "SRVR" + str(timestamp+1) + "|" + str(partialEncKey) + "|" + str(partialIntKey)
 
             ciphertext, MAC_tag = cipher.encrypt_and_digest(data.encode('utf-8'))
-            return ciphertext+MAC_tag
+            return cipher.nonce+ciphertext+MAC_tag
             # parse client info, return updated keys
 
     # set self.timeStamp to the timestamp we received so we can then calculate timeStamp + 1 in the server's response message.
@@ -127,6 +132,8 @@ class Protocol:
     # TODO: IMPLEMENT ENCRYPTION WITH THE SESSION KEY (ALSO INCLUDE ANY NECESSARY INFO IN THE ENCRYPTED MESSAGE FOR INTEGRITY PROTECTION)
     # RETURN AN ERROR MESSAGE IF INTEGRITY VERITIFCATION OR AUTHENTICATION FAILS
     def EncryptAndProtectMessage(self, plain_text):
+        if self._skey is None or self._ikey is None:
+            raise Exception("Incorrect session or integrity key. Please restart your application")
         ctrcipher = AES.new(self._skey, AES.MODE_CTR)
         hmac = Crypto.Hash.HMAC.new(self._ikey)
 

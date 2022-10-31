@@ -80,12 +80,11 @@ class Assignment3VPN:
     def CreateConnection(self):
         # Change button states
         self._ChangeConnectionMode()
-        
+        self.prtcl.setSharedSecret(self.sharedSecret.get())
         # Create connection
         if self._CreateTCPConnection():
             # At this point, whether we are client or server, the shared
             # secret is "locked" - we can't change it anymore --> we specify it in our protocol
-            self.prtcl.setSharedSecret(self.sharedSecret)
             if self.mode.get() == 0:
                 # enable the secure and send buttons
                 self.secureButton["state"] = "enable"
@@ -108,7 +107,6 @@ class Assignment3VPN:
                 self.s.connect((self.hostName.get(), int(self.port.get())))
                 self.conn = self.s
                 self.receive_thread.start()
-                self.SecureConnection()
                 self._AppendLog("CLIENT: Connection established successfully. You can now send/receive messages.")
             else:
                 self._AppendLog("CONNECTION: Initiating server mode...")
