@@ -161,6 +161,9 @@ class Assignment3VPN:
                     answ = self.prtcl.ProcessReceivedProtocolMessage(cipher_text,self.mode.get() == 0,IPAddr)
                     if answ is not None:
                         self._SendMessage(answ)
+                    else:
+                        # Client received answer --> at that point, key est. is finished, can print
+                        self._AppendLog("CLIENT: Connection Secured!")
                 # Otherwise, decrypting and showing the message
                 else:
                     plain_text = self.prtcl.DecryptAndVerifyMessage(cipher_text,IPAddr)
@@ -181,7 +184,7 @@ class Assignment3VPN:
     def SecureConnection(self):
         # disable the button to prevent repeated clicks
         self.secureButton["state"] = "disabled"
-        self._AppendLog("CLIENT - Securing connection... Please wait")
+        self._AppendLog("CLIENT: Securing connection... Please wait.")
         init_message = self.prtcl.GetProtocolInitiationMessage()
         self._SendMessage(init_message)
 
