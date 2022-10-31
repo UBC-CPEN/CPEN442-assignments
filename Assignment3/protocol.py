@@ -25,15 +25,15 @@ class Protocol:
         self.isClient = False
         self.sharedSecret = None
         self.timestamp = 0
-        self.clientsConnectionStates = {} # populated by Server only, unused by Client
-        self.keysDict = {}
+        self.clientsConnectionStates = {} # populated by Server only, only one entry for Client (one per connected client for server)
+        self.keysDict = {} # only populated by Server, client uses _skey and _ikey
 
     def setSharedSecret(self,ss):
         self.sharedSecret = ss
 
     # Creating the initial message of your protocol (to be send to the other party to bootstrap the protocol)
     #Only called by clients
-    def GetProtocolInitiationMessage(self, ip_address):
+    def GetProtocolInitiationMessage(self):
         assert self.sharedSecret is not None
 
         cipher = AES.new(self.sharedSecret, AES.MODE_CCM)
@@ -46,7 +46,7 @@ class Protocol:
         aP = os.urandom(256)
         partialEncKey = pow(generator,a,modulus)
         partialIntKey = pow(generatorP,aP,modulusP)
-        self.keysDict[ip_address] = (partialEncKey,partialIntKey)
+        self.SetSessionKey(partialEncKey,partialIntKey)
         self.timestamp = int(time.time())
         timestamp = str(self.timestamp)
         data = "CLNT"  + timestamp + "|"+ str(partialEncKey) + "|" + str(partialIntKey)
@@ -90,8 +90,7 @@ class Protocol:
             if self.timestamp + 1 == timestamp:
                 raise Exception("Timestamp does not match, could not complete key establishment")
             BEncPKey, BIntPKey = second.split('|')
-            (a,aP) = self.keysDict[ip_address]
-            self.keysDict[ip_address] = (pow(int(BEncPKey),a,modulus), pow(int(BIntPKey),aP, modulusP))
+            self.SetSessionKey(pow(int(BEncPKey),self._skey,modulus), pow(int(BIntPKey),self._ikey, modulusP))
             return None
         else:
             if first[:4] != "CLNT":
@@ -142,9 +141,13 @@ class Protocol:
     # Decrypting and verifying messages
     # TODO: IMPLEMENT DECRYPTION AND INTEGRITY CHECK WITH THE SESSION KEY
     # RETURN AN ERROR MESSAGE IF INTEGRITY VERITIFCATION OR AUTHENTICATION FAILS
-    def DecryptAndVerifyMessage(self, cipher_text):
-        ctrcipher = AES.new(self._skey, AES.MODE_CTR, nonce=cipher_text[:8])
-        hmac = Crypto.Hash.HMAC.new(self._ikey)
+    def DecryptAndVerifyMessage(self, cipher_text, ip_address):
+        assert ip_address is not None
+        (sk,ik) = self.keysDict[ip_address]
+        if sk is None or ik is None:
+            raise Exception("Bad session or integrity key - Key establishment failed?")
+        ctrcipher = AES.new(sk, AES.MODE_CTR, nonce=cipher_text[:8])
+        hmac = Crypto.Hash.HMAC.new(ik)
 
         hmac.update(cipher_text[:-16])
         hmac.verify(cipher_text[-16:])
