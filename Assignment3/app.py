@@ -83,6 +83,9 @@ class Assignment3VPN:
         
         # Create connection
         if self._CreateTCPConnection():
+            # At this point, whether we are client or server, the shared
+            # secret is "locked" - we can't change it anymore --> we specify it in our protocol
+            self.prtcl.setSharedSecret(self.sharedSecret)
             if self.mode.get() == 0:
                 # enable the secure and send buttons
                 self.secureButton["state"] = "enable"
@@ -105,6 +108,7 @@ class Assignment3VPN:
                 self.s.connect((self.hostName.get(), int(self.port.get())))
                 self.conn = self.s
                 self.receive_thread.start()
+                self.SecureConnection()
                 self._AppendLog("CLIENT: Connection established successfully. You can now send/receive messages.")
             else:
                 self._AppendLog("CONNECTION: Initiating server mode...")
@@ -150,13 +154,16 @@ class Assignment3VPN:
 
                 # Checking if the received message is part of your protocol
                 # TODO: MODIFY THE INPUT ARGUMENTS AND LOGIC IF NECESSARY
-                if self.prtcl.IsMessagePartOfProtocol(cipher_text):
+                hostname = socket.gethostname()
+                IPAddr = socket.gethostbyname(hostname)
+                if self.prtcl.IsMessagePartOfProtocol(IPAddr):
                     # Disabling the button to prevent repeated clicks
                     self.secureButton["state"] = "disabled"
                     # Processing the protocol message
-                    self.prtcl.ProcessReceivedProtocolMessage(cipher_text)
-
-                # Otherwise, decrypting and showing the messaage
+                    answ = self.prtcl.ProcessReceivedProtocolMessage(cipher_text,self.mode.get() is 0,IPAddr)
+                    if answ is not None:
+                        self._SendMessage(answ)
+                # Otherwise, decrypting and showing the message
                 else:
                     plain_text = self.prtcl.DecryptAndVerifyMessage(cipher_text)
                     self._AppendMessage("Other: {}".format(plain_text.decode()))
@@ -168,38 +175,15 @@ class Assignment3VPN:
 
     # Send data to the other party
     def _SendMessage(self, message):
-        plain_text = message
-        cipher_text = self.prtcl.EncryptAndProtectMessage(plain_text)
-        self.conn.send(cipher_text.encode())
+        self.conn.send(message)
             
 
     # Secure connection with mutual authentication and key establishment
+    # Called (and callable) only by client
     def SecureConnection(self):
         # disable the button to prevent repeated clicks
         self.secureButton["state"] = "disabled"
-
-        # TODO: THIS IS WHERE YOU SHOULD IMPLEMENT THE START OF YOUR MUTUAL AUTHENTICATION AND KEY ESTABLISHMENT PROTOCOL, MODIFY AS YOU SEEM FIT
-        # wrote down the pseudocode idea for the key establishment here: 
-        """ 
-        if client_side: 
-            init_msg = self.prtcl.getinitmsg
-            self.sendmsg(initmsg) 
-            newmsg = self.rcvmsg()
-            build_skey, these parts will need a lotta byte manip of the text due to the shit we're using 
-            build_ikey
-        if server_side: 
-            msg = self._rcvmsg
-            ProcessMsg(msg) <--- must make sure this is called b4 creating and sending another msg in order to set the timestamp in the protocol self object so that the 
-                                Timestamp + 1 sent by the server in its initiation message is the timestamp of the received message + 1. 
-                                Also, the skey and ikey cannot be calculated inside of ProcessMsg, has to be done out here because processMsg gets the timestamp, but getinitmsg is what
-                                initializes the a and the b from client and server side respectively, so we cant construct the key before calling getinitmsg, but processmsg has to be called 
-                                before getinitmsg in order to put the timestamp in the protocol's self object. 
-            newmsg = self.prtcl.getinitmsg
-            self.sendmsg(initmsg)
-            build_skey
-            build_ikey
-        """
-
+        self._AppendLog("CLIENT - Securing connection... Please wait")
         init_message = self.prtcl.GetProtocolInitiationMessage()
         self._SendMessage(init_message)
 
@@ -209,7 +193,8 @@ class Assignment3VPN:
         text = self.textMessage.get()
         if  text != "" and self.s is not None:
             try:
-                self._SendMessage(text)
+                cipher_text = self.prtcl.EncryptAndProtectMessage(text).encode('utf-8')
+                self._SendMessage(cipher_text)
                 self._AppendMessage("You: {}".format(text))
                 self.textMessage.set("")
             except Exception as e:
