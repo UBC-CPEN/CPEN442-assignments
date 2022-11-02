@@ -151,7 +151,6 @@ class Assignment3VPN:
                     break
 
                 # Checking if the received message is part of your protocol
-                # TODO: MODIFY THE INPUT ARGUMENTS AND LOGIC IF NECESSARY
                 if self.prtcl.areSessionKeysNeeded():
                     # Disabling the button to prevent repeated clicks
                     self.secureButton["state"] = "disabled"

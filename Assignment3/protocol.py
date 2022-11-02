@@ -14,7 +14,6 @@ modulus = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020B
 class Protocol:
 
     # Initializer (Called from app.py)
-    # TODO: MODIFY ARGUMENTS AND LOGIC AS YOU SEEM FIT
     def __init__(self):
         self._skey = None
         self._ikey = None
@@ -57,7 +56,6 @@ class Protocol:
 
 
     # Checking if a received message is part of your protocol (called from app.py)
-    # TODO: IMPLMENET THE LOGIC
     def areSessionKeysNeeded(self):
         return self._skey is None or self._ikey is None
 
@@ -65,7 +63,6 @@ class Protocol:
         return i.to_bytes(length=((i.bit_length() + 7) // 8), byteorder='big')
 
     # Processing protocol message
-    # TODO: IMPLMENET THE LOGIC (CALL SetSessionKey ONCE YOU HAVE THE KEY ESTABLISHED)
     # THROW EXCEPTION IF AUTHENTICATION FAILS
     def ProcessReceivedProtocolMessage(self, message, isClient):
         assert self.sharedSecret is not None
@@ -121,7 +118,6 @@ class Protocol:
 
 
     # Setting the key for the current session
-    # TODO: MODIFY AS YOU SEEM FIT
     def SetSessionKey(self, skey, ikey):
         self.expE = 0
         self.expI = 0
@@ -131,7 +127,6 @@ class Protocol:
 
 
     # Encrypting messages
-    # TODO: IMPLEMENT ENCRYPTION WITH THE SESSION KEY (ALSO INCLUDE ANY NECESSARY INFO IN THE ENCRYPTED MESSAGE FOR INTEGRITY PROTECTION)
     # RETURN AN ERROR MESSAGE IF INTEGRITY VERITIFCATION OR AUTHENTICATION FAILS
     def EncryptAndProtectMessage(self, plain_text):
         if self._skey is None or self._ikey is None:
@@ -148,7 +143,6 @@ class Protocol:
 
 
     # Decrypting and verifying messages
-    # TODO: IMPLEMENT DECRYPTION AND INTEGRITY CHECK WITH THE SESSION KEY
     # RETURN AN ERROR MESSAGE IF INTEGRITY VERITIFCATION OR AUTHENTICATION FAILS
     def DecryptAndVerifyMessage(self, cipher_text):
         if self._skey is None or self._ikey is None:
