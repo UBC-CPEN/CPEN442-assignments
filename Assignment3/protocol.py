@@ -5,28 +5,22 @@ from Crypto.Hash import SHA256
 import time
 import os
 
-# generator and modulus chosen from rfc3526, specifically groups #14 and #15. 
+# generator and modulus chosen from rfc3526, specifically the smallest secure (see submission doc) MODP Group - group 14
 # https://www.ietf.org/rfc/rfc3526.txt
 generator = 2
 modulus = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
 
-# group 15 in rfc3526
-generatorP = 2
-modulusP = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AAAC42DAD33170D04507A33A85521ABDF1CBA64ECFB850458DBEF0A8AEA71575D060C7DB3970F85A6E1E4C7ABF5AE8CDB0933D71E8C94E04A25619DCEE3D2261AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B18177B200CBBE117577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFCE0FD108E4B82D120A93AD2CAFFFFFFFFFFFFFFFF
-
-
-
 class Protocol:
 
     # Initializer (Called from app.py)
-    # TODO: MODIFY ARGUMENTS AND LOGIC AS YOU SEEM FIT
     def __init__(self):
         self._skey = None
         self._ikey = None
+        self.expE = None
+        self.expI = None
         self.isClient = False
         self.sharedSecret = None
         self.timestamp = 0
-        self.clientsConnectionStates = {} # populated by Server only, only one entry for Client (one per connected client for server)
 
     def setSharedSecret(self,ss):
         h = SHA256.new()
@@ -39,16 +33,13 @@ class Protocol:
         assert self.sharedSecret is not None
 
         cipher = AES.new(self.sharedSecret, AES.MODE_CCM)
-        # the crypto library suggests using the os random number generator and generally considers it to be a cryptographically secure random number generator: 
+        # the crypto library suggests using the os random number generator and generally considers it to be a cryptographically secure random number generator:
         # link here: https://cryptography.io/en/latest/random-numbers/
-        # as for choice on the exponent bit-size, there was a section in the rfc document used above that said that the exponent should be roughly 2x the bit-strength of the group we chose (last paragraph introduction section)
-        # by looking at the table, group 14 had a bit strength of 110, group 15 had 130, thus I chose 256 as the exponent bit-size for both. 
 
-        a = int.from_bytes(os.urandom(256),byteorder='big')
-        aP = int.from_bytes(os.urandom(256),byteorder='big')
-        partialEncKey = pow(generator,a,modulus)
-        partialIntKey = pow(generatorP,aP,modulusP)
-        self.SetSessionKey(a,aP)
+        self.expE = int.from_bytes(os.urandom(180),byteorder='big')
+        self.expI = int.from_bytes(os.urandom(180),byteorder='big')
+        partialEncKey = pow(generator,self.expE,modulus)
+        partialIntKey = pow(generator,self.expI,modulus)
         self.timestamp = int(time.time())
         timestamp = str(self.timestamp)
         data = "CLNT"  + timestamp + "|"+ str(partialEncKey) + "|" + str(partialIntKey)
@@ -57,29 +48,22 @@ class Protocol:
 
         # realized that the mac_tag that is acquired from the encrypt_and_digest function is actually a second level mac.
         # effectively, the encrypt function (to my understanding) replicates precisely what the entire thing does, aka what AES-CCM does in this case, and then encrypt_and_digest adds a mac to that scheme
-        # simply due to the fact that every single mode has an encrypt_and_digest function that can be used, 
+        # simply due to the fact that every single mode has an encrypt_and_digest function that can be used,
         return cipher.nonce + ciphertext + MAC_tag
 
 
     # Checking if a received message is part of your protocol (called from app.py)
-    # TODO: IMPLMENET THE LOGIC
-    def IsMessagePartOfProtocol(self,ip_address):
-        val = self.clientsConnectionStates.get(ip_address)
-        if val is None:
-            self.clientsConnectionStates.update({ip_address: False})
-            return True
-        return val
+    def areSessionKeysNeeded(self):
+        return self._skey is None or self._ikey is None
 
     def int_to_bytes(self,i):
         return i.to_bytes(length=((i.bit_length() + 7) // 8), byteorder='big')
 
     # Processing protocol message
-    # TODO: IMPLMENET THE LOGIC (CALL SetSessionKey ONCE YOU HAVE THE KEY ESTABLISHED)
     # THROW EXCEPTION IF AUTHENTICATION FAILS
-    def ProcessReceivedProtocolMessage(self, message, isClient, ip_address):
+    def ProcessReceivedProtocolMessage(self, message, isClient):
         assert self.sharedSecret is not None
         assert len(message)>16
-        assert ip_address is not None
         mac = message[-16:]
         nonce = message[:11]
         ciphertext = message[11:-16]  # I'm Alice represents first 11 byte nonce needed for AES, 16 byte MAC
@@ -98,9 +82,9 @@ class Protocol:
                 raise Exception("Timestamp does not match, could not complete key establishment")
             BEncPKey, BIntPKey = second.split('|')
             h = SHA256.new()
-            h.update(self.int_to_bytes(pow(int(BEncPKey),self._skey,modulus)))
+            h.update(self.int_to_bytes(pow(int(BEncPKey),self.expE,modulus)))
             h2 = SHA256.new()
-            h2.update(self.int_to_bytes(pow(int(BIntPKey),self._ikey, modulusP)))
+            h2.update(self.int_to_bytes(pow(int(BIntPKey),self.expI, modulus)))
             self.SetSessionKey(h.digest(),h2.digest())
             return None
         else:
@@ -109,37 +93,31 @@ class Protocol:
             cipher = AES.new(self.sharedSecret, AES.MODE_CCM)
             # the crypto library suggests using the os random number generator and generally considers it to be a cryptographically secure random number generator:
             # link here: https://cryptography.io/en/latest/random-numbers/
-            # as for choice on the exponent bit-size, there was a section in the rfc document used above that said that the exponent should be roughly 2x the bit-strength of the group we chose (last paragraph introduction section)
-            # by looking at the table, group 14 had a bit strength of 110, group 15 had 130, thus I chose 256 as the exponent bit-size for both.
-            b = int.from_bytes(os.urandom(256),byteorder='big')
-            bP = int.from_bytes(os.urandom(256),byteorder='big')
+            b = int.from_bytes(os.urandom(180),byteorder='big')
+            bP = int.from_bytes(os.urandom(180),byteorder='big')
             partialEncKey = pow(generator, b, modulus)
-            partialIntKey = pow(generatorP, bP, modulusP)
+            partialIntKey = pow(generator, bP, modulus)
             AEncPKey,AIntPKey = second.split('|')
             h = SHA256.new()
             h.update(self.int_to_bytes(pow(int(AEncPKey),b,modulus)))
             h2 = SHA256.new()
-            h2.update(self.int_to_bytes(pow(int(AIntPKey),bP,modulusP)))
+            h2.update(self.int_to_bytes(pow(int(AIntPKey),bP,modulus)))
             self.SetSessionKey(h.digest(),h2.digest())
             data = "SRVR" + str(timestamp+1) + "|" + str(partialEncKey) + "|" + str(partialIntKey)
 
             ciphertext, MAC_tag = cipher.encrypt_and_digest(data.encode('utf-8'))
             return cipher.nonce+ciphertext+MAC_tag
-            # parse client info, return updated keys
-
-    # set self.timeStamp to the timestamp we received so we can then calculate timeStamp + 1 in the server's response message.
-
 
     # Setting the key for the current session
-    # TODO: MODIFY AS YOU SEEM FIT
     def SetSessionKey(self, skey, ikey):
+        self.expE = 0
+        self.expI = 0
         self._skey = skey
         self._ikey = ikey
         pass
 
 
     # Encrypting messages
-    # TODO: IMPLEMENT ENCRYPTION WITH THE SESSION KEY (ALSO INCLUDE ANY NECESSARY INFO IN THE ENCRYPTED MESSAGE FOR INTEGRITY PROTECTION)
     # RETURN AN ERROR MESSAGE IF INTEGRITY VERITIFCATION OR AUTHENTICATION FAILS
     def EncryptAndProtectMessage(self, plain_text):
         if self._skey is None or self._ikey is None:
@@ -156,12 +134,10 @@ class Protocol:
 
 
     # Decrypting and verifying messages
-    # TODO: IMPLEMENT DECRYPTION AND INTEGRITY CHECK WITH THE SESSION KEY
     # RETURN AN ERROR MESSAGE IF INTEGRITY VERITIFCATION OR AUTHENTICATION FAILS
-    def DecryptAndVerifyMessage(self, cipher_text, ip_address):
-        assert ip_address is not None
+    def DecryptAndVerifyMessage(self, cipher_text):
         if self._skey is None or self._ikey is None:
-            raise Exception("Bad session or integrity key - Key establishment failed?")
+            raise Exception("Bad session or integrity key - Key establishment failed")
         ctrcipher = AES.new(self._skey, AES.MODE_CTR, nonce=cipher_text[:8])
         hmac = Crypto.Hash.HMAC.new(self._ikey)
 
@@ -171,15 +147,3 @@ class Protocol:
         plain_bytes = ctrcipher.decrypt(cipher_text[8:-16])
 
         return plain_bytes.decode('utf-8')
-
-if __name__ == "__main__":
-
-    #post key establishment test
-    testProtocol = Protocol()
-    testInput = "The quick brown fox jumps over the lazy dog"
-    skey = Crypto.Random.get_random_bytes(16)
-    ikey = Crypto.Random.get_random_bytes(16)
-    testProtocol.SetSessionKey(skey, ikey)
-    output = testProtocol.EncryptAndProtectMessage(testInput)
-    input = testProtocol.DecryptAndVerifyMessage(output)
-    assert input == testInput

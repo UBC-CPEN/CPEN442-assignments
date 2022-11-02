@@ -151,14 +151,11 @@ class Assignment3VPN:
                     break
 
                 # Checking if the received message is part of your protocol
-                # TODO: MODIFY THE INPUT ARGUMENTS AND LOGIC IF NECESSARY
-                hostname = socket.gethostname()
-                IPAddr = socket.gethostbyname(hostname)
-                if self.prtcl.IsMessagePartOfProtocol(IPAddr):
+                if self.prtcl.areSessionKeysNeeded():
                     # Disabling the button to prevent repeated clicks
                     self.secureButton["state"] = "disabled"
                     # Processing the protocol message
-                    answ = self.prtcl.ProcessReceivedProtocolMessage(cipher_text,self.mode.get() == 0,IPAddr)
+                    answ = self.prtcl.ProcessReceivedProtocolMessage(cipher_text, self.mode.get() == 0)
                     if answ is not None:
                         self._SendMessage(answ)
                     else:
@@ -166,7 +163,7 @@ class Assignment3VPN:
                         self._AppendLog("CLIENT: Connection Secured!")
                 # Otherwise, decrypting and showing the message
                 else:
-                    plain_text = self.prtcl.DecryptAndVerifyMessage(cipher_text,IPAddr)
+                    plain_text = self.prtcl.DecryptAndVerifyMessage(cipher_text)
                     self._AppendMessage("Other: {}".format(plain_text))
                     
             except Exception as e:
