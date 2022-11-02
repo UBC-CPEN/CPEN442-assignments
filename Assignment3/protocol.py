@@ -5,11 +5,10 @@ from Crypto.Hash import SHA256
 import time
 import os
 
-# generator and modulus chosen from rfc3526, specifically the smallest available 1536-bit MODP Group
+# generator and modulus chosen from rfc3526, specifically the smallest secure (see submission doc) MODP Group - group 14
 # https://www.ietf.org/rfc/rfc3526.txt
 generator = 2
-modulus = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFF
-
+modulus = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF
 
 class Protocol:
 
@@ -36,8 +35,6 @@ class Protocol:
         cipher = AES.new(self.sharedSecret, AES.MODE_CCM)
         # the crypto library suggests using the os random number generator and generally considers it to be a cryptographically secure random number generator:
         # link here: https://cryptography.io/en/latest/random-numbers/
-        # as for choice on the exponent bit-size, there was a section in the rfc document used above that said that indicated the exponent for the 1536-bit
-        # group should be between 180 and 240. Given the smallest requirement, we went with the minimal end of the scale.
 
         self.expE = int.from_bytes(os.urandom(180),byteorder='big')
         self.expI = int.from_bytes(os.urandom(180),byteorder='big')
@@ -96,8 +93,6 @@ class Protocol:
             cipher = AES.new(self.sharedSecret, AES.MODE_CCM)
             # the crypto library suggests using the os random number generator and generally considers it to be a cryptographically secure random number generator:
             # link here: https://cryptography.io/en/latest/random-numbers/
-            # as for choice on the exponent bit-size, there was a section in the rfc document used above that said that indicated the exponent for the 1536-bit
-            # group should be between 180 and 240. Given the smallest requirement, we went with the minimal end of the scale.
             b = int.from_bytes(os.urandom(180),byteorder='big')
             bP = int.from_bytes(os.urandom(180),byteorder='big')
             partialEncKey = pow(generator, b, modulus)
@@ -112,10 +107,6 @@ class Protocol:
 
             ciphertext, MAC_tag = cipher.encrypt_and_digest(data.encode('utf-8'))
             return cipher.nonce+ciphertext+MAC_tag
-            # parse client info, return updated keys
-
-    # set self.timeStamp to the timestamp we received so we can then calculate timeStamp + 1 in the server's response message.
-
 
     # Setting the key for the current session
     def SetSessionKey(self, skey, ikey):
@@ -156,15 +147,3 @@ class Protocol:
         plain_bytes = ctrcipher.decrypt(cipher_text[8:-16])
 
         return plain_bytes.decode('utf-8')
-
-if __name__ == "__main__":
-
-    #post key establishment test
-    testProtocol = Protocol()
-    testInput = "The quick brown fox jumps over the lazy dog"
-    skey = Crypto.Random.get_random_bytes(16)
-    ikey = Crypto.Random.get_random_bytes(16)
-    testProtocol.SetSessionKey(skey, ikey)
-    output = testProtocol.EncryptAndProtectMessage(testInput)
-    input = testProtocol.DecryptAndVerifyMessage(output)
-    assert input == testInput
