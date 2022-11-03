@@ -90,6 +90,9 @@ class Protocol:
         else:
             if first[:4] != "CLNT":
                 raise Exception("CLNT tag not found, could not complete key establishment")
+            if timestamp < int(time.time()) - (60 * 5):
+                raise Exception("Received timestamp is too old, could not complete key establishment")
+
             cipher = AES.new(self.sharedSecret, AES.MODE_CCM)
             # the crypto library suggests using the os random number generator and generally considers it to be a cryptographically secure random number generator:
             # link here: https://cryptography.io/en/latest/random-numbers/
