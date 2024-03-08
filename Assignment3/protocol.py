@@ -10,8 +10,8 @@ class Messages:
 
 class InitMessage(Messages):
     def __init__(self, message):
-        Messages.__init__(self, message)
         self.id = ""
+        Messages.__init__(self, message)
 
     def _parseMsg(self):
         # <ID>,<R>
@@ -21,10 +21,10 @@ class InitMessage(Messages):
 
 class AuthMessage(Messages):
     def __init__(self, message):
-        Messages.__init__(self, message)
         self.encryptMsg = ""
         self.DH = 0
         self.hash = ""
+        Messages.__init__(self, message)
 
     def verifyMsg(self):
         # Decript and compare hash
