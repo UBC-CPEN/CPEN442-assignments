@@ -9,6 +9,8 @@ class Protocol:
     # Creating the initial message of your protocol (to be send to the other party to bootstrap the protocol)
     # TODO: IMPLEMENT THE LOGIC (MODIFY THE INPUT ARGUMENTS AS YOU SEEM FIT)
     def GetProtocolInitiationMessage(self):
+        # "I'm Alice" + Ra
+        # (Init) -> Waiting for server message
         return ""
 
 
@@ -22,6 +24,9 @@ class Protocol:
     # TODO: IMPLMENET THE LOGIC (CALL SetSessionKey ONCE YOU HAVE THE KEY ESTABLISHED)
     # THROW EXCEPTION IF AUTHENTICATION FAILS
     def ProcessReceivedProtocolMessage(self, message):
+        # <ID>,<Rc>          MSG_TYPE:INIT       (Init) -> Waiting for client message
+        # <Es>,<Hs>,<Rs>     MSG_TYPE:AUTH       (Client: Waiting for server message) -> Established
+        # <Ec>,<Hc>,<Rc>     MSG_TYPE:AUTH       (Server: Waiting for client message) - > Established
         pass
 
 
