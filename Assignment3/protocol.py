@@ -1,3 +1,43 @@
+class Messages:
+    def __init__(self, message):
+        self.msg = message
+        self.challenge = ""
+        self._parseMsg()
+    pass
+
+    def _parseMsg(self):
+        pass
+
+class InitMessage(Messages):
+    def __init__(self, message):
+        Messages.__init__(self, message)
+        self.id = ""
+
+    def _parseMsg(self):
+        # <ID>,<R>
+        words = self.msg.split(',')
+        self.id = words[0]
+        self.challenge = words[1]
+
+class AuthMessage(Messages):
+    def __init__(self, message):
+        Messages.__init__(self, message)
+        self.encryptMsg = ""
+        self.DH = 0
+        self.hash = ""
+
+    def verifyMsg(self):
+        # Decript and compare hash
+        return True
+
+    def _parseMsg(self):
+        # <E("SRVR/CLNT",g^a mod p,Ra>,H(..),Rb
+        words = self.msg.split(',')
+        self.encryptMsg = words[0]
+        self.DH = words[1]
+        self.challenge = words[2]
+
+
 class Protocol:
     Verbose = True
 
@@ -26,7 +66,8 @@ class Protocol:
     # Checking if a received message is part of your protocol (called from app.py)
     # TODO: IMPLMENET THE LOGIC
     def IsMessagePartOfProtocol(self, message):
-        return False
+        # receiving message is always a protocol message if state is not established
+        return self.state != self.ESTABLISHED
 
 
     # Processing protocol message
@@ -37,10 +78,9 @@ class Protocol:
         # <Es>,<Hs>,<Rs>     MSG_TYPE:AUTH       (Client: Waiting for server message) -> Established
         # <Ec>,<Hc>,<Rc>     MSG_TYPE:AUTH       (Server: Waiting for client message) - > Established
 
+        parsedMsg = self._getParsedMessage(message)
 
-        msg_type = self._getMessageType(message)
-
-        if msg_type == "INIT_MSG":
+        if isinstance(parsedMsg, InitMessage):
             if self.state != self.INIT:
                 # return error and reset state to INIT
                 self._setStateTo(self.INIT)
@@ -48,15 +88,16 @@ class Protocol:
 
             self._setStateTo(self.WAIT_FOR_CLIENT)
 
-        elif msg_type == "AUTH_MSG":
-            if self._verifyMessageAuth(message):
+        elif isinstance(parsedMsg, AuthMessage):
+            if parsedMsg.verifyMsg():
                 if self.state != self.WAIT_FOR_CLIENT or self.state != self.WAIT_FOR_SERVER:
                     # return error and reset state to INIT
                     self._setStateTo(self.INIT)
 
                 self._setStateTo(self.ESTABLISHED)
 
-        pass
+        return self._getProtoSendingMessage(parsedMsg)
+
 
     # Setting the key for the current session
     # TODO: MODIFY AS YOU SEEM FIT
@@ -86,10 +127,17 @@ class Protocol:
 
         self.state = next_state
 
-    def _getMessageType(self, message):
-        # parse message and determine type: INIT_MSG or AUTH_MSG
-        return "INIT_MSG"
+    def _getParsedMessage(self, message):
+        # Messages class parses the message and stores the data, TODO: Return the right type (InitMessage, AuthMessage) depending on message/state
+        return Messages(message)
 
-    def _verifyMessageAuth(self, message):
-        # Decrypt and compare hashes
-        return True
+    def _getProtoSendingMessage(self, receivedMsg):
+        # Based on the state create sending protocol message
+        # INIT: <ID>,<R>
+        # WAIT_FOR_CLIENT: <E("SRVR",g^a mod p,R>,H(..),R
+        # WAIT_FOR_SERVER: <E("SRVR",g^a mod p,R>,H(..),R
+
+        return ""
+
+
+
