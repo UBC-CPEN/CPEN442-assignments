@@ -3,7 +3,7 @@ class Protocol:
 
     INIT = "init"
     WAIT_FOR_CLIENT = "waitForClient"
-    WAIT_FOR_SERVER = "waitForClient"
+    WAIT_FOR_SERVER = "waitForServer"
     ESTABLISHED = "established"
 
     # Initializer (Called from app.py)
